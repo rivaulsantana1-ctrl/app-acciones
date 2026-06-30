@@ -1,7 +1,6 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-import uuid
 
 # Configuración de la página
 st.set_page_config(page_title="Análisis de Acciones IA", page_icon="📈", layout="wide")
@@ -60,18 +59,17 @@ if st.button("Analizar", type="primary"):
                     col3.metric("Sector", sector)
                     
                     # ---------------------------------------------------------
-                    # RESUMEN DEL NEGOCIO EN ESPAÑOL (Widget de TradingView)
+                    # RESUMEN DEL NEGOCIO EN ESPAÑOL (Forzando altura 450px)
                     # ---------------------------------------------------------
                     st.subheader("📄 Resumen del Negocio (Perfil en Español)")
-                    profile_id = f"tv_profile_{uuid.uuid4().hex[:8]}"
-                    profile_widget = f"""
-                    <div class="tradingview-widget-container">
-                      <div class="tradingview-widget-container__widget"></div>
+                    profile_html = f"""
+                    <div class="tradingview-widget-container" style="height:450px; width:100%;">
+                      <div class="tradingview-widget-container__widget" style="height:450px; width:100%;"></div>
                       <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-company-profile.js" async>
                       {{
                         "symbol": "{ticker}",
                         "width": "100%",
-                        "height": "400",
+                        "height": "100%",
                         "colorTheme": "light",
                         "isTransparent": false,
                         "locale": "es"
@@ -79,8 +77,12 @@ if st.button("Analizar", type="primary"):
                       </script>
                     </div>
                     """
-                    st.components.v1.html(profile_widget, height=420)
+                    st.components.v1.html(profile_html, height=470)
                     
+                    # Texto de respaldo por si el ticker no tiene perfil en TradingView
+                    with st.expander("Ver descripción textual (Si el gráfico de arriba está vacío)"):
+                        st.write(info.get('longBusinessSummary', 'No hay resumen disponible.'))
+
                     # ---------------------------------------------------------
                     # PUNTOS FUERTES Y DÉBILES
                     # ---------------------------------------------------------
@@ -181,18 +183,18 @@ if st.button("Analizar", type="primary"):
                         st.write(f"📈 SMA 200: **${sma200:.2f}**")
 
                     # ---------------------------------------------------------
-                    # GRÁFICO GIGANTE DE TRADINGVIEW (800px de altura)
+                    # GRÁFICO GIGANTE DE TRADINGVIEW (Forzando altura 800px)
                     # ---------------------------------------------------------
                     st.subheader("📈 Gráfico Técnico Avanzado (Tiempo Real)")
                     st.markdown("*(Puedes hacer zoom, cambiar a velas japonesas, y ver diferentes temporalidades usando la barra superior del gráfico)*")
                     
-                    chart_id = f"tv_chart_{uuid.uuid4().hex[:8]}"
-                    chart_widget = f"""
-                    <div class="tradingview-widget-container" style="height:800px; width:100%">
-                      <div id="{chart_id}" style="height:800px; width:100%"></div>
+                    chart_html = f"""
+                    <div class="tradingview-widget-container" style="height:800px; width:100%;">
+                      <div class="tradingview-widget-container__widget" style="height:800px; width:100%;"></div>
                       <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
                       {{
-                        "autosize": true,
+                        "width": "100%",
+                        "height": "100%",
                         "symbol": "{ticker}",
                         "interval": "D",
                         "timezone": "Etc/UTC",
@@ -206,13 +208,12 @@ if st.button("Analizar", type="primary"):
                           "STD;SMA",
                           "STD;RSI",
                           "STD;MACD"
-                        ],
-                        "container_id": "{chart_id}"
+                        ]
                       }}
                       </script>
                     </div>
                     """
-                    st.components.v1.html(chart_widget, height=820)
+                    st.components.v1.html(chart_html, height=820)
                     
                     # ---------------------------------------------------------
                     # RECOMENDACIÓN FINAL
