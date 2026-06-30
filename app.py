@@ -59,29 +59,102 @@ if st.button("Analizar", type="primary"):
                     col3.metric("Sector", sector)
                     
                     # ---------------------------------------------------------
-                    # RESUMEN DEL NEGOCIO EN ESPAÑOL (Forzando altura 450px)
+                    # RESUMEN Y ANÁLISIS DE LA ACCIÓN (Widgets arreglados)
                     # ---------------------------------------------------------
-                    st.subheader("📄 Resumen del Negocio (Perfil en Español)")
-                    profile_html = f"""
-                    <div class="tradingview-widget-container" style="height:450px; width:100%;">
-                      <div class="tradingview-widget-container__widget" style="height:450px; width:100%;"></div>
-                      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-company-profile.js" async>
-                      {{
-                        "symbol": "{ticker}",
-                        "width": "100%",
-                        "height": "100%",
-                        "colorTheme": "light",
-                        "isTransparent": false,
-                        "locale": "es"
-                      }}
-                      </script>
-                    </div>
-                    """
-                    st.components.v1.html(profile_html, height=470)
+                    st.subheader("📄 Resumen y Análisis del Símbolo")
                     
-                    # Texto de respaldo por si el ticker no tiene perfil en TradingView
-                    with st.expander("Ver descripción textual (Si el gráfico de arriba está vacío)"):
+                    # 1. Widget de Resumen (Symbol Overview)
+                    overview_html = f"""
+                    <!DOCTYPE html>
+                    <html lang="es">
+                    <head>
+                        <meta charset="UTF-8">
+                        <style>
+                            body {{ margin: 0; padding: 0; overflow: hidden; }}
+                            .tv-container {{ height: 400px; width: 100%; }}
+                        </style>
+                    </head>
+                    <body>
+                        <div class="tradingview-widget-container tv-container">
+                            <div class="tradingview-widget-container__widget"></div>
+                            <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>
+                            {{
+                                "symbols": [[
+                                    "{ticker}|1D"
+                                ]],
+                                "chartOnly": false,
+                                "width": "100%",
+                                "height": "100%",
+                                "locale": "es",
+                                "colorTheme": "light",
+                                "autosize": true,
+                                "showVolume": true,
+                                "showMA": true,
+                                "hideDateRanges": false,
+                                "hideMarketStatus": false,
+                                "hideSymbolLogo": false,
+                                "scalePosition": "right",
+                                "scaleMode": "Normal",
+                                "fontFamily": "Trebuchet MS, sans-serif",
+                                "fontSize": "10",
+                                "noTimeScale": false,
+                                "valuesTracking": "1",
+                                "changeMode": "price-and-percent",
+                                "chartType": "area",
+                                "lineWidth": 2,
+                                "lineType": 0,
+                                "dateRanges": [
+                                    "1d|1",
+                                    "1m|30",
+                                    "3m|60",
+                                    "12m|1D",
+                                    "60m|1W",
+                                    "all|1M"
+                                ]
+                            }}
+                            </script>
+                        </div>
+                    </body>
+                    </html>
+                    """
+                    st.components.v1.html(overview_html, height=420)
+                    
+                    # Texto de respaldo (Descripción de Yahoo Finance)
+                    with st.expander("Leer descripción textual de la empresa"):
                         st.write(info.get('longBusinessSummary', 'No hay resumen disponible.'))
+
+                    # 2. Widget de Análisis Técnico (Compra/Venta automático)
+                    st.markdown("#### 🔍 Análisis Técnico Automático (Señales de TradingView)")
+                    analysis_html = f"""
+                    <!DOCTYPE html>
+                    <html lang="es">
+                    <head>
+                        <meta charset="UTF-8">
+                        <style>
+                            body {{ margin: 0; padding: 0; overflow: hidden; }}
+                            .tv-container {{ height: 400px; width: 100%; }}
+                        </style>
+                    </head>
+                    <body>
+                        <div class="tradingview-widget-container tv-container">
+                            <div class="tradingview-widget-container__widget"></div>
+                            <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
+                            {{
+                                "interval": "1D",
+                                "width": "100%",
+                                "height": "100%",
+                                "isTransparent": false,
+                                "symbol": "{ticker}",
+                                "showIntervalTabs": true,
+                                "locale": "es",
+                                "colorTheme": "light"
+                            }}
+                            </script>
+                        </div>
+                    </body>
+                    </html>
+                    """
+                    st.components.v1.html(analysis_html, height=420)
 
                     # ---------------------------------------------------------
                     # PUNTOS FUERTES Y DÉBILES
@@ -105,7 +178,7 @@ if st.button("Analizar", type="primary"):
                         debilidades.append(f"Caída de ingresos ({revenue_growth*100:.1f}%)")
                     
                     debt_to_equity = info.get('debtToEquity') or 0
-                    if debt_to_equity < 100 and debt_to_equity > 0:
+                    if 0 < debt_to_equity < 100:
                         fortalezas.append(f"Bajo nivel de deuda (Deuda/Capital: {debt_to_equity})")
                     elif debt_to_equity > 200:
                         debilidades.append(f"Alta deuda apalancada (Deuda/Capital: {debt_to_equity})")
@@ -183,37 +256,49 @@ if st.button("Analizar", type="primary"):
                         st.write(f"📈 SMA 200: **${sma200:.2f}**")
 
                     # ---------------------------------------------------------
-                    # GRÁFICO GIGANTE DE TRADINGVIEW (Forzando altura 800px)
+                    # GRÁFICO GIGANTE DE TRADINGVIEW (Cuadro arreglado a 1000px)
                     # ---------------------------------------------------------
                     st.subheader("📈 Gráfico Técnico Avanzado (Tiempo Real)")
                     st.markdown("*(Puedes hacer zoom, cambiar a velas japonesas, y ver diferentes temporalidades usando la barra superior del gráfico)*")
                     
                     chart_html = f"""
-                    <div class="tradingview-widget-container" style="height:800px; width:100%;">
-                      <div class="tradingview-widget-container__widget" style="height:800px; width:100%;"></div>
-                      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
-                      {{
-                        "width": "100%",
-                        "height": "100%",
-                        "symbol": "{ticker}",
-                        "interval": "D",
-                        "timezone": "Etc/UTC",
-                        "theme": "light",
-                        "style": "1",
-                        "locale": "es",
-                        "toolbar_bg": "#f1f3f6",
-                        "enable_publishing": false,
-                        "allow_symbol_change": true,
-                        "studies": [
-                          "STD;SMA",
-                          "STD;RSI",
-                          "STD;MACD"
-                        ]
-                      }}
-                      </script>
-                    </div>
+                    <!DOCTYPE html>
+                    <html lang="es">
+                    <head>
+                        <meta charset="UTF-8">
+                        <style>
+                            body {{ margin: 0; padding: 0; overflow: hidden; }}
+                            .tv-container {{ height: 1000px; width: 100%; }}
+                        </style>
+                    </head>
+                    <body>
+                        <div class="tradingview-widget-container tv-container">
+                            <div class="tradingview-widget-container__widget"></div>
+                            <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+                            {{
+                                "autosize": true,
+                                "symbol": "{ticker}",
+                                "interval": "D",
+                                "timezone": "Etc/UTC",
+                                "theme": "light",
+                                "style": "1",
+                                "locale": "es",
+                                "toolbar_bg": "#f1f3f6",
+                                "enable_publishing": false,
+                                "allow_symbol_change": true,
+                                "studies": [
+                                    "STD;SMA",
+                                    "STD;RSI",
+                                    "STD;MACD"
+                                ]
+                            }}
+                            </script>
+                        </div>
+                    </body>
+                    </html>
                     """
-                    st.components.v1.html(chart_html, height=820)
+                    # El contenedor de Streamlit ahora tiene 1000px de alto, sin scroll
+                    st.components.v1.html(chart_html, height=1000)
                     
                     # ---------------------------------------------------------
                     # RECOMENDACIÓN FINAL
