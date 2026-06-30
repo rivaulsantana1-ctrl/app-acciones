@@ -1,0 +1,226 @@
+import streamlit as st
+import yfinance as yf
+import pandas as pd
+import uuid
+
+# Configuración de la página
+st.set_page_config(page_title="Análisis de Acciones IA", page_icon="📈", layout="wide")
+
+st.title("📈 Analizador Inteligente de Acciones")
+st.markdown("Introduce el ticker de la acción (ej. AAPL, MSFT, TSLA, AMZN) para obtener un análisis completo con gráficos en tiempo real.")
+
+# Input del usuario
+ticker = st.text_input("Introduce el Ticker de la acción:", "AAPL").upper()
+
+if st.button("Analizar"):
+    with st.spinner(f"Analizando {ticker} y descargando gráficos..."):
+        try:
+            stock = yf.Ticker(ticker)
+            info = stock.info
+            hist = stock.history(period="1y")
+            
+            if not info or hist.empty:
+                st.error("No se encontraron datos para este ticker. Intenta con otro.")
+            else:
+                # Variables básicas (con medidas de seguridad si falta datos)
+                precio_actual = hist['Close'].iloc[-1]
+                nombre = info.get('shortName', ticker)
+                summary = info.get('longBusinessSummary', 'No hay resumen disponible.')
+                market_cap = info.get('marketCap', 0) or 0
+                sector = info.get('sector', 'N/A')
+                
+                st.header(f"Análisis para: {nombre}")
+                
+                # Columnas superiores
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Precio Actual", f"${precio_actual:.2f}")
+                col2.metric("Capitalización de Mercado", f"${market_cap/1e9:.2f}B" if market_cap > 0 else "N/A")
+                col3.metric("Sector", sector)
+                
+                st.subheader("📄 Resumen del Negocio")
+                st.write(summary)
+                
+                # ---------------------------------------------------------
+                # PUNTOS FUERTES Y DÉBILES
+                # ---------------------------------------------------------
+                st.subheader("💪 Puntos Fuertes y ⚠️ Puntos Débiles")
+                col_fortalezas, col_debilidades = st.columns(2)
+                
+                fortalezas = []
+                debilidades = []
+                
+                # Evaluación de márgenes
+                profit_margins = info.get('profitMargins') or 0
+                if profit_margins > 0.15:
+                    fortalezas.append(f"Alto margen de beneficio ({profit_margins*100:.1f}%)")
+                elif profit_margins < 0:
+                    debilidades.append(f"La empresa opera en pérdidas (Margen: {profit_margins*100:.1f}%)")
+                
+                # Evaluación de crecimiento
+                revenue_growth = info.get('revenueGrowth') or 0
+                if revenue_growth > 0.1:
+                    fortalezas.append(f"Fuerte crecimiento de ingresos ({revenue_growth*100:.1f}%)")
+                elif revenue_growth < 0:
+                    debilidades.append(f"Caída de ingresos ({revenue_growth*100:.1f}%)")
+                
+                # Evaluación de deuda
+                debt_to_equity = info.get('debtToEquity') or 0
+                if debt_to_equity < 100 and debt_to_equity > 0:
+                    fortalezas.append(f"Bajo nivel de deuda (Deuda/Capital: {debt_to_equity})")
+                elif debt_to_equity > 200:
+                    debilidades.append(f"Alta deuda apalancada (Deuda/Capital: {debt_to_equity})")
+                
+                # Evaluación de liquidez
+                current_ratio = info.get('currentRatio') or 0
+                if current_ratio > 1.5:
+                    fortalezas.append(f"Excelente liquidez (Ratio corriente: {current_ratio})")
+                elif 0 < current_ratio < 1:
+                    debilidades.append(f"Posibles problemas de liquidez a corto plazo (Ratio: {current_ratio})")
+
+                with col_fortalezas:
+                    st.success("**Fortalezas:**")
+                    for f in fortalezas:
+                        st.write(f"✅ {f}")
+                    if not fortalezas: st.write("No se detectaron fortalezas destacables.")
+
+                with col_debilidades:
+                    st.error("**Debilidades:**")
+                    for d in debilidades:
+                        st.write(f"❌ {d}")
+                    if not debilidades: st.write("No se detectaron debilidades críticas.")
+
+                # ---------------------------------------------------------
+                # PREVISIÓN Y PRECIOS OBJETIVO
+                # ---------------------------------------------------------
+                st.subheader("🎯 Previsión de Crecimiento y Precios Objetivo")
+                target_low = info.get('targetLowPrice') or precio_actual
+                target_mean = info.get('targetMeanPrice') or precio_actual
+                target_high = info.get('targetHighPrice') or precio_actual
+                
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Precio Objetivo Bajo", f"${target_low:.2f}")
+                c2.metric("Precio Objetivo Medio", f"${target_mean:.2f}")
+                c3.metric("Precio Objetivo Alto", f"${target_high:.2f}")
+                potencial = ((target_mean - precio_actual) / precio_actual) * 100
+                c4.metric("Potencial (Media)", f"{potencial:.1f}%", delta_color="inverse" if potencial < 0 else "normal")
+
+                # ---------------------------------------------------------
+                # INDICADORES TÉCNICOS Y PUNTOS DE ENTRADA/SALIDA
+                # ---------------------------------------------------------
+                st.subheader("📊 Indicadores Técnicos y Puntos de Entrada/Salida")
+                
+                # Cálculo de Medias Móviles
+                hist['SMA50'] = hist['Close'].rolling(window=50).mean()
+                hist['SMA200'] = hist['Close'].rolling(window=200).mean()
+                
+                sma50 = hist['SMA50'].iloc[-1] if not pd.isna(hist['SMA50'].iloc[-1]) else precio_actual
+                sma200 = hist['SMA200'].iloc[-1] if not pd.isna(hist['SMA200'].iloc[-1]) else precio_actual
+                
+                # Cálculo de RSI
+                delta = hist['Close'].diff()
+                gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+                loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+                rs = gain / loss
+                rsi = 100 - (100 / (1 + rs))
+                rsi_actual = rsi.iloc[-1] if not pd.isna(rsi.iloc[-1]) else 50
+                
+                # Lógica de Entrada y Salida
+                precio_entrada_ideal = sma50 * 0.98  
+                precio_salida_ideal = target_high    
+                precio_stop_loss = sma200            
+                
+                col_ent, col_sal, col_ind = st.columns(3)
+                with col_ent:
+                    st.info("**Puntos de Entrada (Compras)**")
+                    st.write(f"🔹 Precio de entrada técnica ideal: **${precio_entrada_ideal:.2f}** (Cerca del soporte SMA50)")
+                    st.write(f"🔹 Punto de entrada por sobreventa (RSI < 30): Esperar a que el precio caiga a zonas de pánico.")
+                
+                with col_sal:
+                    st.warning("**Puntos de Salida (Take Profit / Stop Loss)**")
+                    st.write(f"🔸 Take Profit (Objetivo alcista): **${precio_salida_ideal:.2f}**")
+                    st.write(f"🔸 Stop Loss (Soporte técnico crítico): **${precio_stop_loss:.2f}** (SMA200, si cae por debajo, vender)")
+                
+                with col_ind:
+                    st.info("**Indicadores Clave**")
+                    st.write(f"📈 RSI (14): **{rsi_actual:.1f}**")
+                    st.write(f"📈 SMA 50: **${sma50:.2f}**")
+                    st.write(f"📈 SMA 200: **${sma200:.2f}**")
+
+                # ---------------------------------------------------------
+                # GRÁFICOS DE TRADINGVIEW INTEGRADOS
+                # ---------------------------------------------------------
+                st.subheader("📊 Gráficos en Tiempo Real de TradingView")
+                
+                chart_id = f"tv_chart_{uuid.uuid4().hex[:8]}"
+                
+                # 1. Widget de Gráfico Avanzado
+                st.markdown("### 📈 Gráfico Técnico Avanzado")
+                chart_widget = f"""
+                <div class="tradingview-widget-container" style="height:500px; width:100%">
+                  <div id="{chart_id}" style="height:500px; width:100%"></div>
+                  <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+                  {{
+                    "autosize": true,
+                    "symbol": "{ticker}",
+                    "interval": "D",
+                    "timezone": "Etc/UTC",
+                    "theme": "light",
+                    "style": "1",
+                    "locale": "es",
+                    "toolbar_bg": "#f1f3f6",
+                    "enable_publishing": false,
+                    "allow_symbol_change": true,
+                    "studies": [
+                      "STD;SMA",
+                      "STD;RSI",
+                      "STD;MACD"
+                    ],
+                    "container_id": "{chart_id}"
+                  }}
+                  </script>
+                </div>
+                """
+                st.components.v1.html(chart_widget, height=520)
+                
+                # 2. Widget de Análisis Técnico
+                st.markdown("### 🔍 Análisis Técnico Automático")
+                analysis_widget = f"""
+                <div class="tradingview-widget-container">
+                  <div class="tradingview-widget-container__widget"></div>
+                  <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
+                  {{
+                    "interval": "1D",
+                    "width": "100%",
+                    "height": "300",
+                    "isTransparent": false,
+                    "symbol": "{ticker}",
+                    "showIntervalTabs": true,
+                    "locale": "es",
+                    "colorTheme": "light"
+                  }}
+                  </script>
+                </div>
+                """
+                st.components.v1.html(analysis_widget, height=320)
+
+                # ---------------------------------------------------------
+                # RECOMENDACIÓN FINAL
+                # ---------------------------------------------------------
+                st.subheader("🤖 Veredicto Final: ¿Es buena compra?")
+                
+                score = 0
+                if precio_actual < sma50: score += 1
+                if precio_actual > sma200: score += 1
+                if rsi_actual < 40: score += 1
+                if potencial > 15: score += 2
+                if len(fortalezas) > len(debilidades): score += 1
+                
+                if score >= 4:
+                    st.success("🟢 **COMPRAR / BUENA OPCIÓN**: La acción muestra fortaleza fundamental y un potencial de crecimiento alto. Los técnicos sugieren que no está sobrevalorada.")
+                elif score >= 2:
+                    st.warning("🟡 **ESPERAR**: La acción tiene señales mixtas. Ya sea porque está cara técnicamente (sobrecompra) o su crecimiento fundamental es moderado. Mejor buscar un mejor punto de entrada.")
+                else:
+                    st.error("🔴 **NI MIRARLA**: La acción está sobrevalorada, en tendencia bajista o tiene graves problemas fundamentales (alta deuda/pérdidas). Evítala por ahora.")
+
+        except Exception as e:
+            st.error(f"Ocurrió un error inesperado al procesar los datos. Intenta con otro ticker. (Detalle: {e})")
